@@ -13,7 +13,6 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Dropzone } from '../components/forms/Dropzone';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 import { Skeleton } from '../components/ui/skeleton';
@@ -25,7 +24,6 @@ export const Invoices = () => {
   const navigate   = useNavigate();
   const location   = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showUpload, setShowUpload] = useState(false);
   const [filter, setFilter]   = useState('all');
   const [search, setSearch]   = useState('');
   const [page, setPage]       = useState(1);

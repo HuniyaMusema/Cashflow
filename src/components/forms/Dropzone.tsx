@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
-import { Upload, FileMinus, ImageIcon, Sparkles, X } from 'lucide-react';
+import { Upload, FileMinus, ImageIcon, Sparkles } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { toast } from 'sonner';
 
 interface DropzoneProps {
   onFileSelect: (file: File) => void;
