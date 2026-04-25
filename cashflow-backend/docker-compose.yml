@@ -1,0 +1,43 @@
+services:
+  laravel:
+    build:
+      context: ./laravel-api
+      dockerfile: Dockerfile
+    container_name: cashflow_laravel
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      APP_KEY: base64:CHANGE_ME_RUN_php_artisan_key_generate
+      DB_CONNECTION: pgsql
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_DATABASE: cashflow
+      DB_USERNAME: cashflow
+      DB_PASSWORD: secret
+      SANCTUM_STATEFUL_DOMAINS: localhost:5173
+      FRONTEND_URL: http://localhost:5173
+      OCR_SERVICE_URL: http://node-ocr:3001
+      LARAVEL_INTERNAL_TOKEN: ocr-internal-secret-token
+    volumes:
+      - ./laravel-api:/var/www/html
+      - laravel_vendor:/var/www/html/vendor
+
+  node-ocr:
+    build:
+      context: ./node-ocr
+      dockerfile: Dockerfile
+    container_name: cashflow_ocr
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      LARAVEL_API_URL: http://laravel:8000/api/v1
+      LARAVEL_INTERNAL_TOKEN: ocr-internal-secret-token
+    volumes:
+      - ./node-ocr:/app
+      - ocr_node_modules:/app/node_modules
+
+volumes:
+  laravel_vendor:
+  ocr_node_modules:

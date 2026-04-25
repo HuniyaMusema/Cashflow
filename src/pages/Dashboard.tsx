@@ -1,252 +1,192 @@
-import { 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Receipt, 
-  FileText, 
-  Plus, 
-  Download,
-  Filter,
-  MoreVertical,
-  TrendingUp,
-  CreditCard,
-  History
-} from 'lucide-react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell
-} from 'recharts';
-import { MetricCard } from '../components/ui/MetricCard';
+import { ArrowUpRight, ArrowDownLeft, Receipt, FileText, Plus, Download, TrendingUp, TrendingDown, CreditCard, History, Sparkles } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAppStore } from '../store/useAppStore';
 import { cn } from '../lib/utils';
-import { toast } from 'sonner';
+import { useDashboard } from '../hooks/useDashboard';
+import { useTranslation } from '../hooks/useTranslation';
+import { Skeleton } from '../components/ui/skeleton';
+import { formatEthiopianPeriod } from '../lib/ethiopian-calendar';
 
-const chartData = [
-  { name: 'Jan', output: 4000, input: 2400 },
-  { name: 'Feb', output: 3000, input: 1398 },
-  { name: 'Mar', output: 2000, input: 9800 },
-  { name: 'Apr', output: 2780, input: 3908 },
-  { name: 'May', output: 1890, input: 4800 },
-  { name: 'Jun', output: 2390, input: 3800 },
-  { name: 'Jul', output: 3490, input: 4300 },
-];
-
-const recentInvoices = [
-  { id: 'INV-001', vendor: 'Ethio Telecom', date: 'Mar 25', amount: '1,200.00', vat: '180.00', status: 'Verified' },
-  { id: 'INV-002', vendor: 'Shell Ethiopia', date: 'Mar 24', amount: '4,500.00', vat: '675.00', status: 'Pending' },
-  { id: 'INV-003', vendor: 'Hilton Addis', date: 'Mar 22', amount: '8,900.00', vat: '1,335.00', status: 'Verified' },
-  { id: 'INV-004', vendor: 'Office Depot', date: 'Mar 21', amount: '450.00', vat: '67.50', status: 'Rejected' },
-];
+const StatCard = ({
+  title, value, sub, icon: Icon, trend, color,
+}: {
+  title: string; value: string; sub?: string;
+  icon: React.ElementType; trend?: 'up' | 'down'; color: string;
+}) => (
+  <div className={cn(
+    "relative overflow-hidden rounded-2xl p-5 border transition-all hover:shadow-lg hover:-translate-y-0.5 duration-200",
+    "bg-white dark:bg-slate-800/80 border-slate-100 dark:border-slate-700/60"
+  )}>
+    <div className={cn("absolute top-0 right-0 w-32 h-32 rounded-full -translate-y-1/2 translate-x-1/2 opacity-[0.07]", color)} />
+    <div className="flex items-start justify-between mb-4">
+      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", color, "bg-opacity-10 dark:bg-opacity-20")}>
+        <Icon size={18} className={cn(color.replace('bg-', 'text-'))} />
+      </div>
+      {trend && (
+        <span className={cn(
+          "flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full",
+          trend === 'up' ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600" : "bg-rose-50 dark:bg-rose-900/30 text-rose-600"
+        )}>
+          {trend === 'up' ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+        </span>
+      )}
+    </div>
+    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">{title}</p>
+    <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{value}</p>
+    {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
+  </div>
+);
 
 export const Dashboard = () => {
-  const { activeCompany, taxPeriod } = useAppStore();
+  const { activeCompany, taxPeriod, calendarType } = useAppStore();
+  const { data, isLoading } = useDashboard();
+  const { t, language } = useTranslation();
+
+  const displayPeriod = calendarType === 'ethiopian'
+    ? formatEthiopianPeriod(taxPeriod, language)
+    : taxPeriod;
+
+  const chartData = (data?.monthly_trend ?? []).map((item: { tax_period: string; output_vat: number; input_vat: number }) => {
+    const label = calendarType === 'ethiopian'
+      ? formatEthiopianPeriod(item.tax_period, language).split(' ')[0].slice(0, 3) // short month
+      : item.tax_period.slice(5); // MM
+    return {
+      name: label,
+      output: Number(item.output_vat),
+      input:  Number(item.input_vat),
+    };
+  });
+
+  const recentInvoices: { id: number; invoice_number: string; vendor_name: string; invoice_date: string; total_amount: string; vat_amount: string; status: string }[] = data?.recent_invoices ?? [];
 
   const handleExport = () => {
-    toast.promise(() => new Promise(resolve => setTimeout(resolve, 2000)), {
-      loading: 'Compiling tax data...',
-      success: 'Export successful! Check your downloads.',
-      error: 'Failed to export data.'
-    });
+    window.open(`/api/v1/reports/csv?tax_period=${taxPeriod}`, '_blank');
   };
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-3 duration-700 max-w-7xl mx-auto px-4 lg:px-8 py-10">
-      <div className="flex items-end justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-widest mb-2">
-            <TrendingUp size={14} />
-            Analytics Overview
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 mt-2 font-medium">
-            Welcome back to <span className="text-slate-900 border-b border-indigo-200">{activeCompany?.name}</span> for {taxPeriod}.
-          </p>
-        </div>
-        <div className="flex gap-4">
-          <button 
-            onClick={handleExport}
-            className="flex items-center gap-2 px-5 py-2.5 border border-slate-200 bg-white rounded-xl hover:bg-slate-50 transition-all font-bold text-sm text-slate-700 shadow-sm active:scale-95"
-          >
-            <Download size={16} />
-            Export CSV
-          </button>
-          <button className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-bold text-sm shadow-xl shadow-indigo-100 active:scale-95">
-            <Plus size={18} />
-            Add Invoice
-          </button>
-        </div>
-      </div>
+    <div className="min-h-full mesh-bg">
+      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
 
-      {/* Metric Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard 
-          title="Total Output VAT" 
-          value="ETB 145,200.00" 
-          change="+12.5%" 
-          trend="up"
-          icon={ArrowUpRight}
-          variant="primary"
-        />
-        <MetricCard 
-          title="Total Input VAT" 
-          value="ETB 98,450.00" 
-          change="+8.2%" 
-          trend="up"
-          icon={ArrowDownLeft}
-          variant="success"
-        />
-        <MetricCard 
-          title="Net Tax Balance" 
-          value="ETB 46,750.00" 
-          change="-4.3%" 
-          trend="down"
-          icon={CreditCard}
-          variant="warning"
-        />
-        <MetricCard 
-          title="Open Reviews" 
-          value="12 Files" 
-          icon={Receipt}
-          variant="destructive"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Chart Section */}
-        <div className="lg:col-span-2 border border-slate-200 rounded-2xl bg-white p-8 shadow-soft">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">VAT Trends</h2>
-              <p className="text-sm text-slate-500 font-medium mt-1">Comparing Input vs Output VAT over time</p>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles size={13} className="text-indigo-500" />
+              <span className="text-xs font-semibold text-indigo-500 uppercase tracking-widest">{t('analyticsOverview')}</span>
             </div>
-            <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-tighter">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                Output VAT
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                Input VAT
-              </div>
-            </div>
+            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{t('dashboard')}</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {t('welcomeBack')} <span className="font-semibold text-slate-700 dark:text-slate-200">{activeCompany?.name ?? 'ABZ'}</span> — {displayPeriod}
+            </p>
           </div>
-          
-          <div className="h-[350px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorOutput" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorInput" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: '#94a3b8', fontWeight: 600 }}
-                  dy={10}
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: '#94a3b8', fontWeight: 600 }}
-                  tickFormatter={(val) => `ETB ${val/1000}k`}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    borderRadius: '12px', 
-                    border: '1px solid #e2e8f0', 
-                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                    fontSize: '14px',
-                    fontWeight: 600
-                  }} 
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="output" 
-                  stroke="#6366f1" 
-                  strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorOutput)" 
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="input" 
-                  stroke="#10b981" 
-                  strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorInput)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="flex gap-2">
+            <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm">
+              <Download size={15} /> {t('exportCsv')}
+            </button>
+            <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-all shadow-sm shadow-indigo-200 dark:shadow-indigo-900/50">
+              <Plus size={15} /> {t('addInvoice')}
+            </button>
           </div>
         </div>
 
-        {/* Recent Activity / Status */}
-        <div className="space-y-8">
-          <div className="border border-slate-200 rounded-2xl bg-white p-8 shadow-soft">
+        {/* Stat Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {isLoading ? [...Array(4)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />) : <>
+            <StatCard title={t('outputVat')}          value={`ETB ${Number(data?.output_vat ?? 0).toLocaleString()}`}        icon={ArrowUpRight}  trend="up"   color="bg-indigo-500" />
+            <StatCard title={t('inputVat')}           value={`ETB ${Number(data?.input_vat ?? 0).toLocaleString()}`}         icon={ArrowDownLeft} trend="up"   color="bg-emerald-500" />
+            <StatCard title={t('netTaxPayable')}      value={`ETB ${Number(data?.net_vat_payable ?? 0).toLocaleString()}`}   icon={CreditCard}    trend="down" color="bg-amber-500" />
+            <StatCard title={t('invoicesThisPeriod')} value={`${data?.invoice_count ?? 0}`} sub={t('files')}                 icon={Receipt}                    color="bg-violet-500" />
+          </>}
+        </div>
+
+        {/* Chart + Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* Chart */}
+          <div className="lg:col-span-2 bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700/60 p-6 shadow-sm flex flex-col min-h-[380px]">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                <History size={18} className="text-indigo-600" />
-                Recent History
-              </h3>
-              <button className="text-xs font-bold text-indigo-600 hover:underline">View All</button>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">{t('vatTrends')}</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t('vatTrendsDesc')}</p>
+              </div>
+              <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />Output</span>
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Input</span>
+              </div>
             </div>
-            
-            <div className="space-y-6">
-              {recentInvoices.map((inv) => (
-                <div key={inv.id} className="flex items-center justify-between group cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:scale-110",
-                      inv.status === 'Verified' ? "bg-emerald-50 bg-emerald-500/10 text-emerald-600" :
-                      inv.status === 'Pending' ? "bg-amber-50 bg-amber-500/10 text-amber-600" :
-                      "bg-rose-50 bg-rose-500/10 text-rose-600"
-                    )}>
-                      <FileText size={18} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-900 truncate max-w-[120px]">{inv.vendor}</p>
-                      <p className="text-[11px] font-bold text-slate-400">{inv.id} • {inv.date}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-black text-slate-900 tracking-tight">ETB {inv.amount}</p>
-                    <p className="text-[11px] font-bold text-indigo-600">VAT: {inv.vat}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="h-64 w-full min-h-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gOutput" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gInput" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#10b981" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.15)" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} dy={8} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} tickFormatter={(v: number) => `${v / 1000}k`} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', fontSize: 12, fontWeight: 600 }}
+                    formatter={(v) => [`ETB ${Number(v ?? 0).toLocaleString()}`, '']}
+                  />
+                  <Area type="monotone" dataKey="output" stroke="#6366f1" strokeWidth={2.5} fill="url(#gOutput)" dot={false} />
+                  <Area type="monotone" dataKey="input"  stroke="#10b981" strokeWidth={2.5} fill="url(#gInput)"  dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
-          <div className="bg-slate-900 rounded-2xl p-8 text-white relative overflow-hidden group shadow-2xl shadow-slate-200">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform duration-1000">
-              <History size={150} />
+          {/* Recent Activity */}
+          <div className="bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700/60 p-6 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <History size={16} className="text-indigo-500" /> {t('recentHistory')}
+              </h3>
+              <button className="text-xs font-semibold text-indigo-500 hover:text-indigo-700 transition-colors">{t('viewAll')}</button>
             </div>
-            <div className="relative z-10">
-              <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 mb-6 border border-indigo-500/30">
-                <FileText size={20} />
+
+            <div className="space-y-3 flex-1">
+              {isLoading
+                ? [...Array(4)].map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)
+                : recentInvoices.length === 0
+                  ? <p className="text-sm text-slate-400 text-center py-8">No recent activity</p>
+                  : recentInvoices.map((inv) => (
+                  <div key={inv.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer group">
+                    <div className={cn(
+                      "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
+                      inv.status === 'verified' ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600" :
+                      inv.status === 'pending'  ? "bg-amber-50 dark:bg-amber-900/30 text-amber-600" :
+                      "bg-rose-50 dark:bg-rose-900/30 text-rose-600"
+                    )}>
+                      <FileText size={15} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{inv.vendor_name}</p>
+                      <p className="text-xs text-slate-400">{inv.invoice_date}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">ETB {Number(inv.total_amount).toLocaleString()}</p>
+                      <p className="text-xs text-indigo-500 font-medium">+{Number(inv.vat_amount).toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+
+            {/* CTA */}
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+              <div className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 p-4 text-white">
+                <p className="text-xs font-bold mb-1">{t('readyForQ1')}</p>
+                <p className="text-xs opacity-75 mb-3">Bulk verify pending invoices with OCR.</p>
+                <button className="w-full py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition-all">
+                  {t('bulkProcess')}
+                </button>
               </div>
-              <h3 className="text-xl font-bold mb-2">Ready for Q1?</h3>
-              <p className="text-slate-400 text-sm leading-relaxed mb-6 font-medium">
-                You have 89 pending purchase invoices for this quarter. Bulk verify them using our OCR engine.
-              </p>
-              <button className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-xl shadow-indigo-600/20 transition-all active:scale-95">
-                Bulk Process
-              </button>
             </div>
           </div>
         </div>
