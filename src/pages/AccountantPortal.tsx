@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { config, formatETB } from '../config';
 import { useAppStore } from '../store/useAppStore';
-import { useTranslation } from '../hooks/useTranslation';
 import { toEthiopian } from '../lib/ethiopian-calendar';
 import { cn } from '../lib/utils';
 import { Skeleton } from '../components/ui/skeleton';
@@ -11,7 +10,7 @@ import { toast } from 'sonner';
 import {
   ArrowUpRight, ArrowDownLeft, Percent, Search,
   Download, CheckSquare, Square, FileSpreadsheet,
-  Calendar, ChevronDown, Filter, RefreshCw,
+  Calendar, ChevronDown, RefreshCw,
 } from 'lucide-react';
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
@@ -122,7 +121,6 @@ function TaxCard({ title, value, sub, icon: Icon, color, isLoading }: {
 
 export const AccountantPortal = () => {
   const { taxPeriod, setTaxPeriod, calendarType, language } = useAppStore();
-  const { t } = useTranslation();
   const qc = useQueryClient();
 
   const [search, setSearch]         = useState('');

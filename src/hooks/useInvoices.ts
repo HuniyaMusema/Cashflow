@@ -16,6 +16,9 @@ export interface Invoice {
   status: 'pending' | 'verified' | 'rejected';
   source: 'manual' | 'ocr';
   tax_period: string;
+  mrc?: string;
+  fs_number?: string;
+  vat_reg_no?: string;
 }
 
 interface InvoiceFilters {

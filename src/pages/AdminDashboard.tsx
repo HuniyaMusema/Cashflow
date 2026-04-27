@@ -141,8 +141,8 @@ export const AdminDashboard = () => {
                     <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.15)" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={(v: number) => `${v / 1000}k`} />
-                      <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: 12 }} formatter={(v: number) => [`ETB ${v.toLocaleString()}`, '']} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={(v) => `${Number(v ?? 0) / 1000}k`} />
+                      <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: 12 }} formatter={(v) => [`ETB ${Number(v ?? 0).toLocaleString()}`, '']} />
                       <Bar dataKey="output" fill="#6366f1" radius={[4, 4, 0, 0]} name="Output VAT" />
                       <Bar dataKey="input"  fill="#10b981" radius={[4, 4, 0, 0]} name="Input VAT" />
                     </BarChart>
