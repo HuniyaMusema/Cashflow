@@ -10,10 +10,12 @@ import {
   AlertCircle,
   FileMinus,
   FileSearch,
-  ArrowRight
+  ArrowRight,
+  Camera,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Dropzone } from '../components/forms/Dropzone';
+import { CameraCapture } from '../components/forms/CameraCapture';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 import { Skeleton } from '../components/ui/skeleton';
@@ -26,6 +28,7 @@ export const Invoices = () => {
   const location   = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [filter, setFilter]   = useState('all');
   const [search, setSearch]   = useState('');
   const [page, setPage]       = useState(1);
@@ -70,29 +73,47 @@ export const Invoices = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-3 duration-700 max-w-7xl mx-auto px-4 lg:px-8 py-10">
+
+      {/* Camera modal */}
+      {showCamera && (
+        <CameraCapture
+          onCapture={handleFileSelect}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
+
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-widest mb-2">
             <FileSearch size={14} />
             Document Management
           </div>
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900 leading-none">Invoices</h1>
-          <p className="text-slate-500 mt-3 font-medium text-lg leading-none">Review and manage your tax-compliant digital records.</p>
+          <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">Invoices</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-3 font-medium text-lg leading-none">Review and manage your tax-compliant digital records.</p>
         </div>
-        <div className="flex gap-4">
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
+        <div className="flex gap-3">
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
             onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
             accept="image/*"
           />
-          <button 
+          {/* Camera capture button */}
+          <button
+            onClick={() => setShowCamera(true)}
+            className="flex items-center gap-2 px-5 py-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all active:scale-95 shadow-sm"
+          >
+            <Camera size={18} className="text-indigo-500" />
+            Scan Receipt
+          </button>
+          {/* File upload button */}
+          <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
           >
             <Plus size={18} />
-            New Upload
+            Upload File
           </button>
         </div>
       </div>
@@ -131,7 +152,8 @@ export const Invoices = () => {
                 <Filter size={18} className="text-slate-500" />
               </button>
               <a
-                href={`/api/v1/reports/csv?tax_period=${taxPeriod}`}
+                href={`/api/v1/reports/csv?tax_period=${taxPeriod}&type=${routeType ?? 'Sales'}&token=${localStorage.getItem('auth_token') ?? ''}`}
+                title={`Download ${routeType ?? 'Sales'} e-Tax CSV`}
                 className="p-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-sm bg-white flex items-center"
               >
                 <Download size={18} className="text-slate-500" />
@@ -161,13 +183,22 @@ export const Invoices = () => {
                 <p className="text-slate-500 mt-3 font-medium max-w-sm">
                   Upload your first receipt to get started.
                 </p>
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="mt-8 flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
-                >
-                  <Plus size={18} />
-                  New Upload
-                </button>
+                <div className="flex gap-3 mt-8">
+                  <button
+                    onClick={() => setShowCamera(true)}
+                    className="flex items-center gap-2 px-6 py-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all"
+                  >
+                    <Camera size={18} className="text-indigo-500" />
+                    Scan Receipt
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                  >
+                    <Plus size={18} />
+                    Upload File
+                  </button>
+                </div>
               </div>
             ) : (
               <table className="w-full text-left border-collapse min-w-[900px]">

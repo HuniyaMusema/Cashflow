@@ -60,7 +60,12 @@ export const Dashboard = () => {
   const recentInvoices: { id: number; invoice_number: string; vendor_name: string; invoice_date: string; total_amount: string; vat_amount: string; status: string }[] = data?.recent_invoices ?? [];
 
   const handleExport = () => {
-    window.open(`/api/v1/reports/csv?tax_period=${taxPeriod}`, '_blank');
+    const token = localStorage.getItem('auth_token') ?? '';
+    // ERA requires separate Sales and Purchase CSV files
+    window.open(`/api/v1/reports/csv?tax_period=${taxPeriod}&type=Sales&token=${token}`, '_blank');
+    setTimeout(() => {
+      window.open(`/api/v1/reports/csv?tax_period=${taxPeriod}&type=Purchase&token=${token}`, '_blank');
+    }, 500);
   };
 
   return (

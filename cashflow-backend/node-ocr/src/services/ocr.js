@@ -2,34 +2,51 @@ const Tesseract = require('tesseract.js');
 
 /**
  * Run Tesseract OCR on a receipt image and extract invoice fields.
- * Supports bilingual receipts (English + Amharic).
+ * Supports bilingual Ethiopian receipts (English + Amharic).
+ * Extracts: vendorName, tin, date, total, vat, mrc, fsNumber, vatRegNo
  */
 async function extractInvoiceData(imagePath) {
-  // Try English first (faster), then fall back to eng+amh if TIN not found
   let text = await runOCR(imagePath, 'eng');
   let extracted = parseFields(text);
 
-  // If critical fields missing, retry with Amharic+English
+  // Retry with Amharic if critical fields missing
   if (!extracted.tin || !extracted.total) {
     console.log('Retrying OCR with eng+amh...');
     try {
-      text = await runOCR(imagePath, 'eng+amh');
-      const retry = parseFields(text);
-      // Merge — prefer non-null values
+      const text2 = await runOCR(imagePath, 'eng+amh');
+      const retry  = parseFields(text2);
       extracted = {
         vendorName: extracted.vendorName || retry.vendorName,
         tin:        extracted.tin        || retry.tin,
         date:       extracted.date       || retry.date,
         total:      extracted.total      || retry.total,
         vat:        extracted.vat        || retry.vat,
-        rawText:    text,
+        mrc:        extracted.mrc        || retry.mrc,
+        fsNumber:   extracted.fsNumber   || retry.fsNumber,
+        vatRegNo:   extracted.vatRegNo   || retry.vatRegNo,
+        rawText:    text2,
       };
+      text = text2;
     } catch {
-      // amh lang pack not installed — stick with English result
+      // amh lang pack not installed — use English result
     }
   }
 
   extracted.rawText = text;
+  // Print full raw text for debugging
+  console.log('=== RAW OCR TEXT ===');
+  console.log(text);
+  console.log('===================');
+  console.log('Extracted fields:', {
+    vendorName: extracted.vendorName,
+    tin:        extracted.tin,
+    date:       extracted.date,
+    total:      extracted.total,
+    vat:        extracted.vat,
+    mrc:        extracted.mrc,
+    fsNumber:   extracted.fsNumber,
+    vatRegNo:   extracted.vatRegNo,
+  });
   return extracted;
 }
 
@@ -54,18 +71,107 @@ function parseFields(text) {
     date:       extractDate(text),
     total:      extractTotal(text),
     vat:        extractVAT(text),
+    mrc:        extractMRC(text),
+    fsNumber:   extractFSNumber(text),
+    vatRegNo:   extractVATRegNo(text),
     rawText:    text,
   };
 }
 
 /**
- * TIN: 10-digit number near "TIN", "T.I.N", "ታክስ መ.ቁ", "የሻጭ ታክስ"
- * Ethiopian TINs are exactly 10 digits.
+ * MRC (Machine Readable Code) — ERA fiscal device identifier.
+ * Handles OCR noise: O/0 confusion, l/1 confusion, spaces inserted by OCR
+ * Formats: BEB0037731, BED0014703, BIA015612, ET BEB0037731
+ */
+function extractMRC(text) {
+  // Normalize common OCR errors before matching
+  const normalized = text
+    .replace(/[oO]/g, '0')   // O → 0 in numeric parts (handled per-match below)
+    .replace(/[lI]/g, '1');  // l/I → 1 in numeric parts
+
+  const patterns = [
+    // "ET BEB0037731" — Ethio Telecom fiscal device
+    /\bET\s+([A-Z]{2,4}[\dOolI]{5,10})\b/i,
+    // "MRC: BIA015612"
+    /MRC[:\s#.]*([A-Z]{2,4}[\dOolI]{5,10})/i,
+    // "ITEM# BEB0037731"
+    /ITEM#?\s*([A-Z]{2,4}[\dOolI]{5,10})/i,
+    // Standalone on own line
+    /^([A-Z]{2,4}[\dOolI]{5,10})$/m,
+    // Near fiscal keywords
+    /(?:fiscal|receipt|MRC)[^\n]{0,40}([A-Z]{2,4}[\dOolI]{5,10})/i,
+  ];
+
+  for (const re of patterns) {
+    // Try on both original and normalized text
+    for (const t of [text, normalized]) {
+      const m = t.match(re);
+      if (m) {
+        // Clean up: replace O→0, l/I→1 in the digit portion
+        const raw = m[1].toUpperCase();
+        const letters = raw.match(/^[A-Z]+/)?.[0] ?? '';
+        const digits  = raw.slice(letters.length).replace(/O/g, '0').replace(/[lI]/g, '1');
+        return letters + digits;
+      }
+    }
+  }
+
+  // Last resort: scan every line for anything that looks like a fiscal code
+  for (const line of text.split('\n')) {
+    const clean = line.trim().replace(/\s+/g, '');
+    const m = clean.match(/^(?:ET)?([A-Z]{2,4}[\dOolI]{5,10})$/i);
+    if (m) {
+      const raw = m[1].toUpperCase();
+      const letters = raw.match(/^[A-Z]+/)?.[0] ?? '';
+      const digits  = raw.slice(letters.length).replace(/O/g, '0').replace(/[lI]/g, '1');
+      return letters + digits;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * FS Number (Fiscal Receipt Number) — e.g. FS00027761, FS No.00000738
+ */
+function extractFSNumber(text) {
+  const patterns = [
+    // "FS No.00000738" or "FS No. 00000738"
+    /FS\s*No\.?\s*(\d{5,10})/i,
+    // "Vat receipt number FS00027761"
+    /(?:Vat\s*receipt\s*(?:number)?|Receipt\s*No\.?)[:\s#.]*([A-Z]{0,3}\d{5,10})/i,
+    // Standalone FS number "FS00000731"
+    /\b(FS\d{5,10})\b/i,
+    // "No. 0337" style
+    /N[oO°]\.?\s*(\d{4,8})\b/,
+  ];
+
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m) return m[1].toUpperCase().trim();
+  }
+  return null;
+}
+
+/**
+ * VAT Registration Number — e.g. "VAT Reg. No. 26383"
+ */
+function extractVATRegNo(text) {
+  const m = text.match(/VAT\s*Reg(?:istration)?\s*(?:No\.?|Number)[:\s]*(\d{4,10})/i);
+  if (m) return m[1].trim();
+  return null;
+}
+
+/**
+ * TIN: 10-digit number near "TIN", "T.I.N", "Buyer's TIN"
+ * Also handles "TIN: 0039858666" format at top of receipt
  */
 function extractTIN(text) {
   const patterns = [
-    // "Supplier's TIN No. 0001163960"
-    /(?:Supplier[''s]*\s*TIN\s*No\.?|TIN\s*No\.?|T\.I\.N\.?|Tax\s*ID)[:\s#.]*(\d[\d\s]{8,11}\d)/i,
+    // "TIN: 0039858666" — most common on thermal receipts
+    /TIN[:\s#.]+(\d{10})/i,
+    // "Supplier's TIN No. 0001163960" or "Buyer's TIN: 0078119995"
+    /(?:Supplier|Buyer|Customer|Seller)[''s]*\s*TIN[:\s#.]*(\d[\d\s]{8,11}\d)/i,
     // "TIN No. 0001 163 960" with spaces
     /(?:TIN|T\.I\.N)[^0-9]{0,10}(\d{4}[\s-]?\d{3}[\s-]?\d{3})/i,
     // Standalone 10-digit number
@@ -87,35 +193,27 @@ function extractTIN(text) {
  */
 function extractDate(text) {
   const patterns = [
-    // "Date 5/2/26" or "Date 05/02/2026"
     /Date[:\s]*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/i,
-    // ISO format
     /(\d{4}-\d{2}-\d{2})/,
-    // DD/MM/YYYY
     /(\d{1,2})\/(\d{1,2})\/(\d{4})/,
-    // Month name
     /((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})/i,
   ];
 
   for (const re of patterns) {
     const m = text.match(re);
     if (!m) continue;
-
     try {
-      // "Date 5/2/26" → groups: day=5, month=2, year=26
       if (m.length === 4 && re.source.startsWith('Date')) {
         let [, d, mo, y] = m;
         if (y.length === 2) y = parseInt(y) > 50 ? `19${y}` : `20${y}`;
         const date = new Date(`${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`);
         if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10);
       }
-      // DD/MM/YYYY
       if (m.length === 4) {
         const [, d, mo, y] = m;
         const date = new Date(`${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`);
         if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10);
       }
-      // ISO or named month
       const date = new Date(m[1]);
       if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10);
     } catch { continue; }
@@ -124,70 +222,95 @@ function extractDate(text) {
 }
 
 /**
- * Total: look for labeled totals, handle Ethiopian number formatting (67,200 or 67200)
- * Priority: "Total (Incl. VAT)" > "Total" > largest amount
+ * Total amount — handles Ethiopian dot-separated format: 388.238.39
+ * Priority: TOTAL > Total Incl VAT > Total Price > largest amount
  */
 function extractTotal(text) {
-  // Clean text — remove watermarks and noise
   const clean = text.replace(/ATTACHMENT|COPY|DUPLICATE/gi, '');
 
   const labeled = [
-    // "Total (Incl. VAT) 77,280" or "ጠቅላላ ድምር 77280"
-    /Total\s*\(?Incl\.?\s*VAT\)?\s*[:\-]?\s*([\d,]+)/i,
-    /Total\s*Incl[^0-9]{0,10}([\d,]+)/i,
-    // "Total Price 67,200"
-    /Total\s*Price\s*[:\-]?\s*([\d,]+)/i,
-    // "Total 67,200"
-    /\bTotal\b[^0-9\n]{0,15}([\d,]+)/i,
-    // "Amount in Words" line — grab the number on same line
-    /Grand\s*Total[^0-9]{0,10}([\d,]+)/i,
+    // "TOTAL: *388.238.39" — thermal receipt format with asterisk
+    /TOTAL\s*[:\*]+\s*\*?([\d.,]+)/i,
+    /Total\s*\(?Incl\.?\s*VAT\)?\s*[:\-]?\s*([\d.,]+)/i,
+    /Total\s*Price\s*[:\-]?\s*([\d.,]+)/i,
+    /\bTotal\b[^0-9\n]{0,15}([\d.,]+)/i,
+    /Grand\s*Total[^0-9]{0,10}([\d.,]+)/i,
   ];
 
   for (const re of labeled) {
     const m = clean.match(re);
     if (m) {
-      const val = parseFloat(m[1].replace(/,/g, ''));
+      // Handle Ethiopian dot-separated: 388.238.39 → 388238.39
+      const raw = m[1].replace(/\*/g, '');
+      const val = parseEthiopianNumber(raw);
       if (!isNaN(val) && val > 0) return val;
     }
   }
 
-  // Fallback: largest currency amount on the receipt
-  const amounts = [...clean.matchAll(/([\d,]+(?:\.\d{1,2})?)/g)]
-    .map(m => parseFloat(m[1].replace(/,/g, '')))
-    .filter(n => !isNaN(n) && n > 100); // ignore small numbers
-
+  // Fallback: largest amount — but exclude phone numbers (10 digits starting with 09)
+  const amounts = [...clean.matchAll(/([\d.,]+)/g)]
+    .map(m => ({ raw: m[1], val: parseEthiopianNumber(m[1]) }))
+    .filter(({ raw, val }) => {
+      if (isNaN(val) || val <= 100) return false;
+      // Exclude phone numbers: 10 digits starting with 09 or 07
+      const digits = raw.replace(/[.,]/g, '');
+      if (/^0[79]\d{8}$/.test(digits)) return false;
+      return true;
+    })
+    .map(({ val }) => val);
   return amounts.length ? Math.max(...amounts) : null;
 }
 
 /**
- * VAT: look for "VAT (15%)" line
+ * Parse Ethiopian number format:
+ * "388.238.39" → 388238.39 (dots as thousands separators)
+ * "337,598.60" → 337598.60 (comma as thousands separator)
+ * "67,200"     → 67200
+ */
+function parseEthiopianNumber(str) {
+  const s = str.replace(/\*/g, '').trim();
+  // Count dots — if more than one dot, they're thousands separators
+  const dots = (s.match(/\./g) || []).length;
+  if (dots > 1) {
+    // e.g. "388.238.39" — last segment is decimals
+    const parts = s.split('.');
+    const decimals = parts.pop();
+    const integer = parts.join('');
+    return parseFloat(`${integer}.${decimals}`);
+  }
+  // Standard: remove commas
+  return parseFloat(s.replace(/,/g, ''));
+}
+
+/**
+ * VAT amount — handles "VAT (15%)", "TAX1 15%", "TAX 15%"
  */
 function extractVAT(text) {
-  const m = text.match(/VAT\s*\(?15%?\)?\s*[:\-]?\s*([\d,]+)/i);
-  if (m) return parseFloat(m[1].replace(/,/g, ''));
+  const patterns = [
+    /VAT\s*\(?15%?\)?\s*[:\-]?\s*\*?([\d.,]+)/i,
+    /TAX1?\s*15%?\s*[:\-]?\s*\*?([\d.,]+)/i,
+    /TAX\s*\(?15%?\)?\s*[:\-]?\s*\*?([\d.,]+)/i,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m) return parseEthiopianNumber(m[1].replace(/\*/g, ''));
+  }
   return null;
 }
 
 /**
- * Vendor name: first meaningful line — skip short/numeric lines
- * For Ethiopian receipts, the English company name is usually in the header
+ * Vendor name — prefer lines with business keywords
  */
 function extractVendorName(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-
   for (const line of lines.slice(0, 10)) {
-    // Skip lines that are purely numbers, symbols, or very short
     if (line.length < 5) continue;
     if (/^[\d\s\W]+$/.test(line)) continue;
-    // Skip common header noise
     if (/receipt|invoice|attachment|copy|fiscal|invalid/i.test(line)) continue;
-    // Prefer lines with "Trade", "PLC", "Ltd", "Co.", "Retail", "Store"
-    if (/trade|plc|ltd|co\.|retail|store|shop|enterprise|business/i.test(line)) {
+    if (/trade|plc|ltd|co\.|retail|store|shop|enterprise|business|service/i.test(line)) {
       return line.replace(/[^\w\s&.,'-]/g, '').trim().slice(0, 100);
     }
   }
-
-  // Fallback: first non-trivial line
   for (const line of lines.slice(0, 8)) {
     if (line.length >= 5 && !/^[\d\W]+$/.test(line)) {
       return line.replace(/[^\w\s&.,'-]/g, '').trim().slice(0, 100);

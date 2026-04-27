@@ -60,6 +60,9 @@ router.post('/upload', upload.single('receipt'), async (req, res) => {
       taxable_amount:     taxable,
       type:               invoice_type,
       company_id:         parseInt(company_id),
+      mrc:                extracted.mrc       || null,
+      fs_number:          extracted.fsNumber  || null,
+      vat_reg_no:         extracted.vatRegNo  || null,
       ocr_raw_data:       { ...extracted, rawText: extracted.rawText?.slice(0, 500) },
       receipt_image_path: req.file.filename,
     });
@@ -80,7 +83,20 @@ router.post('/extract-only', upload.single('receipt'), async (req, res) => {
   try {
     const extracted = await extractInvoiceData(req.file.path);
     console.log('Extracted:', JSON.stringify({ ...extracted, rawText: '...' }, null, 2));
-    return res.json({ success: true, extracted, filename: req.file.filename });
+    return res.json({
+      success: true,
+      extracted: {
+        vendorName: extracted.vendorName,
+        tin:        extracted.tin,
+        date:       extracted.date,
+        total:      extracted.total,
+        vat:        extracted.vat,
+        mrc:        extracted.mrc,
+        fsNumber:   extracted.fsNumber,
+        vatRegNo:   extracted.vatRegNo,
+      },
+      filename: req.file.filename,
+    });
   } catch (err) {
     console.error('OCR extract error:', err.message);
     return res.status(500).json({ error: err.message });

@@ -56,7 +56,8 @@ router.get('/', auth, async (req, res) => {
 // POST /api/v1/invoices
 router.post('/', auth, async (req, res) => {
   const { vendor_name, vendor_tin, invoice_date, taxable_amount, type, status = 'pending',
-          source = 'manual', receipt_image_path, ocr_raw_data } = req.body;
+          source = 'manual', receipt_image_path, ocr_raw_data,
+          mrc, fs_number, vat_reg_no } = req.body;
 
   if (!vendor_name || !vendor_tin || !invoice_date || !taxable_amount || !type) {
     return res.status(422).json({ message: 'Missing required fields.' });
@@ -71,13 +72,15 @@ router.post('/', auth, async (req, res) => {
     INSERT INTO invoices
       (company_id, created_by, invoice_number, vendor_name, vendor_tin,
        invoice_date, type, taxable_amount, vat_amount, withholding_amount,
-       total_amount, status, source, receipt_image_path, ocr_raw_data, tax_period)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+       total_amount, status, source, receipt_image_path, ocr_raw_data,
+       tax_period, mrc, fs_number, vat_reg_no)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
     RETURNING *`,
     [req.companyId, req.user.id, invNum, vendor_name, vendor_tin,
      invoice_date, type, taxable, vat, wht, total,
      status, source, receipt_image_path || null,
-     ocr_raw_data ? JSON.stringify(ocr_raw_data) : null, period]
+     ocr_raw_data ? JSON.stringify(ocr_raw_data) : null, period,
+     mrc || null, fs_number || null, vat_reg_no || null]
   );
 
   res.status(201).json(rows[0]);
@@ -117,14 +120,14 @@ router.post('/ocr-submit', async (req, res) => {
   }
 
   const { vendor_name, vendor_tin, invoice_date, taxable_amount, type,
-          company_id, ocr_raw_data, receipt_image_path } = req.body;
+          company_id, ocr_raw_data, receipt_image_path,
+          mrc, fs_number, vat_reg_no } = req.body;
 
   const taxable = parseFloat(taxable_amount) || 0;
   const { vat, wht, total } = calcTax(taxable, type || 'Purchase');
   const period = (invoice_date || new Date().toISOString()).slice(0, 7);
   const invNum = 'INV-' + uuidv4().slice(0, 8).toUpperCase();
 
-  // Get first user of company
   const userRes = await pool.query(
     `SELECT id FROM users WHERE company_id=$1 LIMIT 1`, [company_id]
   );
@@ -134,14 +137,16 @@ router.post('/ocr-submit', async (req, res) => {
     INSERT INTO invoices
       (company_id, created_by, invoice_number, vendor_name, vendor_tin,
        invoice_date, type, taxable_amount, vat_amount, withholding_amount,
-       total_amount, status, source, receipt_image_path, ocr_raw_data, tax_period)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending','ocr',$12,$13,$14)
+       total_amount, status, source, receipt_image_path, ocr_raw_data,
+       tax_period, mrc, fs_number, vat_reg_no)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending','ocr',$12,$13,$14,$15,$16,$17)
     RETURNING *`,
     [company_id, userId, invNum, vendor_name || 'Unknown', vendor_tin || '0000000000',
      invoice_date || new Date().toISOString().slice(0, 10),
      type || 'Purchase', taxable, vat, wht, total,
      receipt_image_path || null,
-     ocr_raw_data ? JSON.stringify(ocr_raw_data) : null, period]
+     ocr_raw_data ? JSON.stringify(ocr_raw_data) : null, period,
+     mrc || null, fs_number || null, vat_reg_no || null]
   );
 
   res.status(201).json(rows[0]);

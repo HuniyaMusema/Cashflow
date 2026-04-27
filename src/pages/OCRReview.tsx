@@ -16,6 +16,9 @@ const invoiceSchema = z.object({
   taxableAmount: z.string().min(1, 'Amount is required'),
   vatAmount:     z.string().min(1, 'VAT amount is required'),
   invoiceType:   z.enum(['Sales', 'Purchase']),
+  mrc:           z.string().optional(),
+  fsNumber:      z.string().optional(),
+  vatRegNo:      z.string().optional(),
 });
 
 type InvoiceFormValues = z.infer<typeof invoiceSchema>;
@@ -38,6 +41,9 @@ export const OCRReview = () => {
       taxableAmount: ocr?.total      ? String(ocr.total) : '',
       vatAmount:     ocr?.total      ? String(Math.round(Number(ocr.total) * 0.15 * 100) / 100) : '',
       invoiceType:   'Purchase',
+      mrc:           ocr?.mrc        ?? '',
+      fsNumber:      ocr?.fsNumber   ?? '',
+      vatRegNo:      ocr?.vatRegNo   ?? '',
     },
   });
 
@@ -52,6 +58,9 @@ export const OCRReview = () => {
         taxable_amount: data.taxableAmount,
         type:           data.invoiceType,
         status:         'verified',
+        mrc:            data.mrc        || undefined,
+        fs_number:      data.fsNumber   || undefined,
+        vat_reg_no:     data.vatRegNo   || undefined,
       }).then(() => navigate('/purchases')),
       {
         loading: 'Saving invoice...',
@@ -198,6 +207,37 @@ export const OCRReview = () => {
                   <option value="Purchase">Purchase</option>
                   <option value="Sales">Sales</option>
                 </select>
+              </div>
+
+              {/* ERA Fiscal Fields */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-700 space-y-4">
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">ERA Fiscal Data</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest pl-1">MRC Number</label>
+                    <input
+                      {...register('mrc')}
+                      placeholder="e.g. BED0014703"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-indigo-600/5 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest pl-1">FS Number</label>
+                    <input
+                      {...register('fsNumber')}
+                      placeholder="e.g. FS00027761"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-indigo-600/5 transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest pl-1">VAT Reg. No.</label>
+                  <input
+                    {...register('vatRegNo')}
+                    placeholder="e.g. 26383"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-indigo-600/5 transition-all"
+                  />
+                </div>
               </div>
             </form>
           </section>

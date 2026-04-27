@@ -61,3 +61,19 @@ export function useUpdateInvoiceStatus() {
     },
   });
 }
+
+export function useBulkWithholding() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, rate }: { ids: number[]; rate: 2 | 3 }) =>
+      Promise.all(ids.map(id =>
+        laravelApi.patch(`/invoices/${id}/status`, { status: 'verified', withholding_rate: rate })
+      )),
+    onSuccess: (_, { ids }) => {
+      qc.invalidateQueries({ queryKey: ['invoices'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success(`Withholding applied to ${ids.length} invoice(s)`);
+    },
+    onError: () => toast.error('Bulk action failed'),
+  });
+}

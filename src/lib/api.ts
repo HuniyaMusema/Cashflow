@@ -1,27 +1,27 @@
 import axios from 'axios';
+import { config } from '../config';
 
-// Use relative URLs — Vite proxies them to the correct backend
-// This completely eliminates CORS issues
-export const laravelApi = axios.create({
-  baseURL: '/api/v1',
-  timeout: 30000,
+export const api = axios.create({
+  baseURL: config.api.baseUrl,
+  timeout: config.api.timeout,
   headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
 });
 
+// Keep laravelApi as alias for backward compatibility
+export const laravelApi = api;
+
 export const ocrApi = axios.create({
-  baseURL: '/api/ocr',
-  timeout: 90000,
+  baseURL: config.api.ocrUrl,
+  timeout: config.api.ocrTimeout,
 });
 
-// Attach token on every Laravel request
-laravelApi.interceptors.request.use((config) => {
+api.interceptors.request.use((cfg) => {
   const token = localStorage.getItem('auth_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
+  if (token) cfg.headers.Authorization = `Bearer ${token}`;
+  return cfg;
 });
 
-// Only redirect on 401 if we had a token
-laravelApi.interceptors.response.use(
+api.interceptors.response.use(
   (r) => r,
   (err) => {
     if (err.response?.status === 401 && localStorage.getItem('auth_token')) {

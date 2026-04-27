@@ -9,11 +9,13 @@ interface Company {
 
 interface AppState {
   activeCompany: Company | null;
+  userRole: 'admin' | 'accountant' | 'viewer' | null;
   taxPeriod: string;
   calendarType: 'gregorian' | 'ethiopian';
   theme: 'light' | 'dark';
   language: 'en' | 'am';
   setActiveCompany: (company: Company) => void;
+  setUserRole: (role: 'admin' | 'accountant' | 'viewer') => void;
   setTaxPeriod: (period: string) => void;
   toggleCalendar: () => void;
   toggleTheme: () => void;
@@ -24,12 +26,14 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       activeCompany: { id: '1', name: 'ABZ', tin: '1234567890' },
-      taxPeriod: new Date().toISOString().slice(0, 7),
-      calendarType: 'gregorian',
-      theme: 'light',
-      language: 'en',
+      userRole:      null,
+      taxPeriod:     new Date().toISOString().slice(0, 7),
+      calendarType:  'gregorian',
+      theme:         'light',
+      language:      'en',
       setActiveCompany: (company) => set({ activeCompany: company }),
-      setTaxPeriod: (period) => set({ taxPeriod: period }),
+      setUserRole:      (role)    => set({ userRole: role }),
+      setTaxPeriod:     (period)  => set({ taxPeriod: period }),
       toggleCalendar: () => set((s) => ({
         calendarType: s.calendarType === 'gregorian' ? 'ethiopian' : 'gregorian',
       })),

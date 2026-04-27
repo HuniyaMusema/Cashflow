@@ -17,7 +17,7 @@ type FormValues = z.infer<typeof schema>;
 export const Login = ({ onSuccess }: { onSuccess: () => void }) => {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { setActiveCompany } = useAppStore();
+  const { setActiveCompany, setUserRole } = useAppStore();
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -34,6 +34,7 @@ export const Login = ({ onSuccess }: { onSuccess: () => void }) => {
         name: res.data.user.company.name,
         tin:  res.data.user.company.tin,
       });
+      setUserRole(res.data.user.role ?? 'accountant');
       toast.success('Welcome back!');
       onSuccess();
     } catch {

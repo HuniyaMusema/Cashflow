@@ -21,6 +21,14 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'cashflow-ocr' });
 });
 
+// Debug: show raw OCR text (dev only)
+app.post('/api/ocr/debug', require('multer')({ dest: 'uploads/' }).single('receipt'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file' });
+  const Tesseract = require('tesseract.js');
+  const { data: { text } } = await Tesseract.recognize(req.file.path, 'eng');
+  res.json({ text });
+});
+
 app.listen(PORT, () => {
   console.log(`OCR service running on port ${PORT}`);
 });

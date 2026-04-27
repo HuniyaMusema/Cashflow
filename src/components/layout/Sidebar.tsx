@@ -1,20 +1,21 @@
-import { LayoutDashboard, ArrowUpRight, ArrowDownLeft, FileText, Settings, Zap } from 'lucide-react';
+import { LayoutDashboard, ArrowUpRight, ArrowDownLeft, FileText, Settings, Zap, Shield, FileSpreadsheet } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useAppStore } from '../../store/useAppStore';
 
 export const Sidebar = () => {
   const location = useLocation();
   const { t } = useTranslation();
+  const { userRole } = useAppStore();
 
   const navItems = [
-    { key: 'dashboard'   as const, icon: LayoutDashboard, href: '/' },
-    { key: 'sales'       as const, icon: ArrowUpRight,    href: '/sales' },
-    { key: 'purchases'   as const, icon: ArrowDownLeft,   href: '/purchases' },
-    { key: 'declarations'as const, icon: FileText,        href: '/declarations' },
-    { key: 'settings'    as const, icon: Settings,        href: '/settings' },
+    { key: 'dashboard'    as const, icon: LayoutDashboard, href: '/' },
+    { key: 'sales'        as const, icon: ArrowUpRight,    href: '/sales' },
+    { key: 'purchases'    as const, icon: ArrowDownLeft,   href: '/purchases' },
+    { key: 'declarations' as const, icon: FileText,        href: '/declarations' },
+    { key: 'settings'     as const, icon: Settings,        href: '/settings' },
   ];
-
   return (
     <aside className="w-64 flex flex-col h-screen sticky top-0 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800">
       {/* Logo */}
@@ -55,6 +56,48 @@ export const Sidebar = () => {
             </Link>
           );
         })}
+
+        {/* Accountant Portal link */}
+        <Link
+          to="/accountant"
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group relative",
+            location.pathname === '/accountant'
+              ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold"
+              : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800"
+          )}
+        >
+          {location.pathname === '/accountant' && (
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-emerald-600 rounded-r-full" />
+          )}
+          <FileSpreadsheet size={17} className={cn(
+            "shrink-0",
+            location.pathname === '/accountant' ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 group-hover:text-slate-600"
+          )} />
+          Accountant Portal
+        </Link>
+
+        {/* Admin link — only for admin role */}
+        {userRole === 'admin' && (
+          <Link
+            to="/admin"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group relative mt-2",
+              location.pathname.startsWith('/admin')
+                ? "bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 font-semibold"
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800"
+            )}
+          >
+            {location.pathname.startsWith('/admin') && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-violet-600 rounded-r-full" />
+            )}
+            <Shield size={17} className={cn(
+              "shrink-0",
+              location.pathname.startsWith('/admin') ? "text-violet-600 dark:text-violet-400" : "text-slate-400 group-hover:text-slate-600"
+            )} />
+            Admin Panel
+          </Link>
+        )}
       </nav>
 
       {/* Upgrade CTA */}
