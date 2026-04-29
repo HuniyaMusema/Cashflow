@@ -1,0 +1,81 @@
+services:
+  # ── Node.js API ──────────────────────────────────────────────────────────────
+  - type: web
+    name: cashflow-api
+    runtime: node
+    rootDir: cashflow-backend/server
+    buildCommand: npm install
+    startCommand: node src/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8001
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OCR_INTERNAL_TOKEN
+        value: ocr-internal-secret-token
+      - key: DB_HOST
+        fromDatabase:
+          name: cashflow-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: cashflow-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: cashflow-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: cashflow-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: cashflow-db
+          property: password
+
+  # ── OCR Microservice ─────────────────────────────────────────────────────────
+  - type: web
+    name: cashflow-ocr
+    runtime: node
+    rootDir: cashflow-backend/node-ocr
+    buildCommand: npm install
+    startCommand: node src/index.js
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: LARAVEL_INTERNAL_TOKEN
+        value: ocr-internal-secret-token
+      - key: LARAVEL_API_URL
+        fromService:
+          name: cashflow-api
+          type: web
+          property: host
+          envVarKey: LARAVEL_API_URL
+
+  # ── React Frontend ────────────────────────────────────────────────────────────
+  - type: web
+    name: cashflow-frontend
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: cashflow-api
+          type: web
+          property: host
+          envVarKey: VITE_API_URL
+      - key: VITE_OCR_URL
+        fromService:
+          name: cashflow-ocr
+          type: web
+          property: host
+          envVarKey: VITE_OCR_URL
+
+databases:
+  - name: cashflow-db
+    databaseName: cashflow
+    user: cashflow
