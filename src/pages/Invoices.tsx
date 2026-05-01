@@ -26,7 +26,6 @@ export const Invoices = () => {
   const navigate   = useNavigate();
   const location   = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showUpload, _setShowUpload] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [filter, setFilter]   = useState('all');
   const [search, setSearch]   = useState('');
