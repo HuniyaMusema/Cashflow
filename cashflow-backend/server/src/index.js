@@ -40,7 +40,7 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ message: 'Internal server error', error: err.message });
 });
 
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`✓ ABZ Tax API running on http://127.0.0.1:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✓ ABZ Tax API running on http://0.0.0.0:${PORT}`);
   console.log(`  Login: admin@cashflow.et / password`);
 });
