@@ -3,6 +3,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const express = require('express');
 const cors    = require('cors');
 
+const migrate            = require('./db/migrate');
 const authRoutes         = require('./routes/auth');
 const invoiceRoutes      = require('./routes/invoices');
 const dashboardRoutes    = require('./routes/dashboard');
@@ -40,7 +41,15 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ message: 'Internal server error', error: err.message });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✓ ABZ Tax API running on http://0.0.0.0:${PORT}`);
-  console.log(`  Login: admin@cashflow.et / password`);
+async function start() {
+  await migrate();
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✓ ABZ Tax API running on http://0.0.0.0:${PORT}`);
+    console.log(`  Login: admin@cashflow.et / password`);
+  });
+}
+
+start().catch(err => {
+  console.error('Failed to start server:', err.message);
+  process.exit(1);
 });
