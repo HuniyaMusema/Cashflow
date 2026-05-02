@@ -7,6 +7,7 @@ const pool = new Pool({
   database: process.env.DB_NAME     || 'cashflow',
   user:     process.env.DB_USER     || 'postgres',
   password: process.env.DB_PASSWORD || 'qpzm19',
+  ssl:      { rejectUnauthorized: false },
 });
 
 pool.on('error', (err) => console.error('DB pool error:', err.message));
