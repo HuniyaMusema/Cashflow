@@ -84,8 +84,14 @@ async function migrate() {
     console.log('✓ All tables created successfully');
   } finally {
     client.release();
-    await pool.end();
   }
 }
 
-migrate().catch(err => { console.error('Migration failed:', err.message); process.exit(1); });
+// Allow running directly: `node src/db/migrate.js`
+if (require.main === module) {
+  migrate()
+    .then(() => pool.end())
+    .catch(err => { console.error('Migration failed:', err.message); process.exit(1); });
+}
+
+module.exports = migrate;
