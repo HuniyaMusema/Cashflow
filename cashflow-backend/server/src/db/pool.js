@@ -1,12 +1,18 @@
 const { Pool } = require('pg');
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 
+const REQUIRED_ENV_VARS = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
+const missing = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
+if (missing.length > 0) {
+  throw new Error(`Missing required database environment variables: ${missing.join(', ')}`);
+}
+
 const pool = new Pool({
-  host:     process.env.DB_HOST     || '127.0.0.1',
-  port:     parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME     || 'cashflow',
-  user:     process.env.DB_USER     || 'postgres',
-  password: process.env.DB_PASSWORD || 'qpzm19',
+  host:     process.env.DB_HOST,
+  port:     parseInt(process.env.DB_PORT, 10),
+  database: process.env.DB_NAME,
+  user:     process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
   ssl:      { rejectUnauthorized: false },
 });
 
