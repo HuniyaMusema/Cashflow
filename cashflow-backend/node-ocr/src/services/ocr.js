@@ -14,13 +14,12 @@ const fs        = require('fs');
 const ETHIOPIAN_TIN_RE = /^\d{10}$/;
 
 /**
- * Ethiopian MRC patterns from known fiscal cash register manufacturers:
- *   Daisy FX series:  BEB0037731, BED0014703, BIA015612
- *   Ethio Telecom ET: ET BEB0037731
- *   Generic:          CLC0002221, FP1234567, MERC1234567
+ * Ethiopian MRC patterns from known fiscal cash register manufacturers.
  * Pattern: 2–4 uppercase letters + 5–10 digits
+ * EXCLUDED prefixes: TELL, TEL, MOB, FAX, PHO (phone/contact labels)
  */
 const MRC_BODY_RE = /^[A-Z]{2,4}\d{5,10}$/;
+const MRC_EXCLUDED_PREFIXES = /^(TELL|TEL|MOB|FAX|PHO|ADD|ADR|P\.O|PO)/i;
 
 // ─── 1. Image Pre-processing ──────────────────────────────────────────────────
 
@@ -38,17 +37,18 @@ async function preprocessImage(imagePath) {
 
   try {
     await sharp(imagePath)
+      .rotate()                          // auto-rotate based on EXIF orientation
       .greyscale()
-      .normalise()                        // auto contrast stretch
-      .sharpen({ sigma: 1.5 })           // edge sharpening
-      .threshold(128)                    // binarise — black/white only
+      .normalise()                       // auto contrast stretch
+      .sharpen({ sigma: 1.5 })          // edge sharpening
+      .threshold(128)                   // binarise — black/white only
       .toFile(outPath);
 
     console.log('[OCR] Image preprocessed →', outPath);
     return outPath;
   } catch (err) {
     console.warn('[OCR] Preprocessing failed, using original:', err.message);
-    return imagePath;                    // fall back to original
+    return imagePath;
   }
 }
 
@@ -234,11 +234,13 @@ function extractTIN(text) {
     }
   }
 
-  // Last resort: first 10-digit number that is NOT a buyer TIN and NOT a phone number
+  // Last resort: first 10-digit number that is NOT a buyer TIN and NOT a phone/timestamp
   const allTens = [...clean.matchAll(/\b(\d{10})\b/g)].map(m => m[1]);
   for (const candidate of allTens) {
     if (buyerTINs.has(candidate)) continue;
-    if (/^0[79]/.test(candidate)) continue;  // phone number
+    if (/^0[79]/.test(candidate)) continue;   // phone number
+    if (/^19\d{8}$/.test(candidate)) continue; // looks like a year-based number
+    if (/^20\d{8}$/.test(candidate)) continue; // same
     if (ETHIOPIAN_TIN_RE.test(candidate)) return candidate;
   }
 
@@ -273,7 +275,7 @@ function extractMRC(text) {
     return letters + rest;
   };
 
-  const isValidMRC = (s) => MRC_BODY_RE.test(s);
+  const isValidMRC = (s) => MRC_BODY_RE.test(s) && !MRC_EXCLUDED_PREFIXES.test(s);
 
   // Patterns with anchor keywords (highest confidence)
   const anchoredPatterns = [
@@ -385,8 +387,10 @@ function extractTotal(text) {
     .filter(({ raw, val }) => {
       if (isNaN(val) || val <= 100) return false;
       const digits = raw.replace(/[.,]/g, '');
-      if (/^0[79]\d{8}$/.test(digits)) return false; // phone number
-      if (/^\d{10}$/.test(digits)) return false;      // TIN-like number
+      if (/^0[79]\d{8}$/.test(digits)) return false;   // phone number
+      if (/^\d{10}$/.test(digits)) return false;        // TIN-like number
+      if (/^(19|20)\d{6}$/.test(digits)) return false;  // timestamp like 10144155
+      if (val > 10_000_000) return false;               // unrealistic receipt total
       return true;
     })
     .map(({ val }) => val);
