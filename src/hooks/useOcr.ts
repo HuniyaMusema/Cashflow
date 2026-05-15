@@ -4,18 +4,27 @@ import { useAppStore } from '../store/useAppStore';
 import { toast } from 'sonner';
 
 export interface OcrExtracted {
-  vendorName: string | null;
-  tin:        string | null;
-  date:       string | null;
-  total:      number | null;
-  rawText:    string;
+  vendorName:   string | null;
+  tin:          string | null;
+  tinValid:     boolean;
+  date:         string | null;
+  total:        number | null;
+  vat:          number | null;
+  mrc:          string | null;
+  fsNumber:     string | null;
+  vatRegNo:     string | null;
+  needsReview:  boolean;
+  reviewReason: string[];
+  rawText:      string;
 }
 
 export interface OcrResult {
-  success:   boolean;
-  extracted: OcrExtracted;
-  filename:  string;
-  invoice?:  object;
+  success:      boolean;
+  extracted:    OcrExtracted;
+  filename:     string;
+  needsReview?: boolean;
+  reviewReason?: string[];
+  invoice?:     object;
 }
 
 /**

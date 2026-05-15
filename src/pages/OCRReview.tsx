@@ -30,7 +30,9 @@ export const OCRReview = () => {
   const createInvoice = useCreateInvoice();
   const { t }         = useTranslation();
 
-  const ocr = (location.state as { extracted?: Record<string, string | null> } | null)?.extracted;
+  const ocr = (location.state as { extracted?: Record<string, string | null>; needsReview?: boolean; reviewReason?: string[] } | null)?.extracted;
+  const needsReview  = (location.state as { needsReview?: boolean } | null)?.needsReview;
+  const reviewReason = (location.state as { reviewReason?: string[] } | null)?.reviewReason ?? [];
 
   const { register, handleSubmit, formState: { errors } } = useForm<InvoiceFormValues>({
     resolver: zodResolver(invoiceSchema),
@@ -101,6 +103,20 @@ export const OCRReview = () => {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
+        {/* Needs Review Banner */}
+        {needsReview && reviewReason.length > 0 && (
+          <div className="absolute top-16 inset-x-0 z-30 bg-amber-50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-700 px-8 py-2.5 flex items-start gap-3">
+            <span className="text-amber-600 text-lg leading-none mt-0.5">⚠</span>
+            <div>
+              <p className="text-xs font-bold text-amber-800 dark:text-amber-300">OCR needs manual review — please verify these fields:</p>
+              <ul className="mt-0.5 space-y-0.5">
+                {reviewReason.map((r, i) => (
+                  <li key={i} className="text-xs text-amber-700 dark:text-amber-400">• {r}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
         {/* Left: Document Viewer */}
         <div className="flex-1 bg-slate-200/50 dark:bg-slate-800/50 p-10 overflow-auto flex flex-col items-center gap-6 scrollbar-none border-r border-slate-200 dark:border-slate-700">
           <div className="flex gap-2 p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl sticky top-0 z-10">

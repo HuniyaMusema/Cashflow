@@ -55,7 +55,14 @@ export const Invoices = () => {
       toast.dismiss(toastId);
       if (result.extracted) {
         toast.success('OCR complete — review the extracted data');
-        navigate('/review', { state: { extracted: result.extracted, filename: result.filename } });
+        navigate('/review', {
+          state: {
+            extracted:    result.extracted,
+            filename:     result.filename,
+            needsReview:  result.extracted.needsReview,
+            reviewReason: result.extracted.reviewReason,
+          },
+        });
       } else {
         toast.warning('OCR returned no data — fill fields manually');
         navigate('/review', { state: { extracted: null } });
